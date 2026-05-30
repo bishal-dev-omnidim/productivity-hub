@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
-import { prisma } from '@/lib/db'
 import { getUserId } from '@/lib/get-user'
 import { ok, noContent, handle } from '@/lib/api'
+import { entriesService } from '@/services/entries-service'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -13,16 +13,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
   return handle(async () => {
     const userId = await getUserId()
     const { id } = await params
-
-    const entry = await prisma.timeEntry.findFirst({
-      where: { id, userId, deletedAt: null },
-      include: {
-        task: { select: { name: true } },
-        category: { select: { name: true, color: true } },
-      },
-    })
+    const entry = await entriesService.getById(userId, id)
     if (!entry) throw new Error('Not found')
-
     return ok(entry)
   })
 }
@@ -40,35 +32,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   return handle(async () => {
     const userId = await getUserId()
     const { id } = await params
-    const body = await req.json()
-    const data = UpdateEntrySchema.parse(body)
-
-    const existing = await prisma.timeEntry.findFirst({ where: { id, userId } })
-    if (!existing) throw new Error('Not found')
-
-    const task = await prisma.task.upsert({
-      where: {
-        userId_categoryId_name: { userId, categoryId: data.categoryId, name: data.taskName },
-      },
-      update: { lastUsed: new Date() },
-      create: { userId, categoryId: data.categoryId, name: data.taskName, lastUsed: new Date() },
-    })
-
-    const entry = await prisma.timeEntry.update({
-      where: { id },
-      data: {
-        taskId: task.id,
-        categoryId: data.categoryId,
-        startTime: data.startTime,
-        duration: data.duration,
-        notes: data.notes ?? null,
-      },
-      include: {
-        task: { select: { name: true } },
-        category: { select: { name: true, color: true } },
-      },
-    })
-
+    const data = UpdateEntrySchema.parse(await req.json())
+    const entry = await entriesService.update(id, { userId, ...data })
     return ok(entry)
   })
 }
@@ -78,13 +43,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   return handle(async () => {
     const userId = await getUserId()
     const { id } = await params
-
-    const result = await prisma.timeEntry.updateMany({
-      where: { id, userId },
-      data: { deletedAt: new Date() },
-    })
-    if (result.count === 0) throw new Error('Not found')
-
+    const deleted = await entriesService.softDelete(userId, id)
+    if (!deleted) throw new Error('Not found')
     return noContent()
   })
 }

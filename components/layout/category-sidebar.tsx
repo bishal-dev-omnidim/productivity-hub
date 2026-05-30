@@ -1,24 +1,16 @@
 import Link from 'next/link'
-import { prisma } from '@/lib/db'
 import { auth } from '@/auth'
 import { LayoutDashboard, Calendar, Settings, Clock } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { SignOutButton } from './SignOutButton'
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { Separator } from './ui/separator'
-
-async function getCategories(userId: string) {
-  return prisma.category.findMany({
-    where: { userId, isArchived: false },
-    orderBy: { order: 'asc' },
-  })
-}
+import { SignOutButton } from './sign-out-button'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Separator } from '@/components/ui/separator'
+import { categoriesService } from '@/services/categories-service'
 
 export async function CategorySidebar() {
   const session = await auth()
   if (!session?.user?.id) return null
 
-  const categories = await getCategories(session.user.id)
+  const categories = await categoriesService.list(session.user.id)
 
   const nav = [
     { href: '/', label: 'Today', icon: LayoutDashboard },
@@ -42,9 +34,7 @@ export async function CategorySidebar() {
           <Link
             key={href}
             href={href}
-            className={cn(
-              'flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors'
-            )}
+            className="flex items-center gap-2.5 px-3 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
           >
             <Icon className="w-4 h-4 shrink-0" />
             {label}

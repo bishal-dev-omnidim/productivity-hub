@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { formatDuration, formatTime } from '@/lib/utils'
 import { deleteTimeEntry } from '@/app/actions'
-import { Button } from './ui/button'
+import { Button } from '@/components/ui/button'
 import { Trash2, Pencil, Plus } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { EntryEditModal } from './EntryEditModal'
+import { EntryEditModal } from './entry-edit-modal'
 
 interface Category {
   id: string

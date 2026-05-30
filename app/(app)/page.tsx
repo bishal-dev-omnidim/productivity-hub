@@ -3,8 +3,8 @@ export const dynamic = 'force-dynamic'
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { startOfDay, endOfDay, format, subDays, addDays } from 'date-fns'
-import { DailyTimeline } from '@/components/DailyTimeline'
-import { DateNavigator } from '@/components/DateNavigator'
+import { DailyTimeline } from '@/components/timeline/daily-timeline'
+import { DateNavigator } from '@/components/layout/date-navigator'
 import { formatDuration } from '@/lib/utils'
 
 interface PageProps {

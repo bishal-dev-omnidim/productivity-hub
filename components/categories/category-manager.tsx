@@ -17,10 +17,10 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { createCategory, updateCategory, archiveCategory, updateCategoryOrder } from '@/app/actions'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { Label } from './ui/label'
-import { Badge } from './ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { GripVertical, Plus, Archive, Pencil, Check, X } from 'lucide-react'
 
 const PALETTE = [

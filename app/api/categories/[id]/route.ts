@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
-import { prisma } from '@/lib/db'
 import { getUserId } from '@/lib/get-user'
 import { ok, noContent, handle } from '@/lib/api'
+import { categoriesService } from '@/services/categories-service'
 import { z } from 'zod'
 
 export const dynamic = 'force-dynamic'
@@ -14,21 +14,14 @@ const UpdateCategorySchema = z.object({
   isArchived: z.boolean().optional(),
 })
 
-// PATCH /api/categories/:id  (update name/color, or archive via { isArchived: true })
+// PATCH /api/categories/:id
 export async function PATCH(req: NextRequest, { params }: Params) {
   return handle(async () => {
     const userId = await getUserId()
     const { id } = await params
-    const body = await req.json()
-    const data = UpdateCategorySchema.parse(body)
-
-    const result = await prisma.category.updateMany({
-      where: { id, userId },
-      data,
-    })
-    if (result.count === 0) throw new Error('Not found')
-
-    const category = await prisma.category.findUnique({ where: { id } })
+    const data = UpdateCategorySchema.parse(await req.json())
+    const category = await categoriesService.update(userId, id, data)
+    if (!category) throw new Error('Not found')
     return ok(category)
   })
 }
@@ -38,13 +31,8 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   return handle(async () => {
     const userId = await getUserId()
     const { id } = await params
-
-    const result = await prisma.category.updateMany({
-      where: { id, userId },
-      data: { isArchived: true },
-    })
-    if (result.count === 0) throw new Error('Not found')
-
+    const archived = await categoriesService.archive(userId, id)
+    if (!archived) throw new Error('Not found')
     return noContent()
   })
 }

@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
-import { CategoryManager } from '@/components/CategoryManager'
-import { ProfileForm } from '@/components/ProfileForm'
+import { CategoryManager } from '@/components/categories/category-manager'
+import { ProfileForm } from '@/components/categories/profile-form'
 import { Separator } from '@/components/ui/separator'
 
 export default async function SettingsPage() {

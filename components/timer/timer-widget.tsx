@@ -4,9 +4,9 @@ import { useEffect, useState, useTransition } from 'react'
 import { useStore } from '@/lib/store'
 import { createTimeEntry } from '@/app/actions'
 import { formatDuration } from '@/lib/utils'
-import { Button } from './ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
-import { Input } from './ui/input'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { Square, Play, Timer } from 'lucide-react'
 
 interface Category {

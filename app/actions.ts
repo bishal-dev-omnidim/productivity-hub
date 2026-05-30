@@ -1,13 +1,22 @@
 'use server'
 
-import { prisma } from '@/lib/db'
-import { getUserId } from '@/lib/get-user'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
+import { getUserId } from '@/lib/get-user'
+import { entriesService } from '@/services/entries-service'
+import { categoriesService } from '@/services/categories-service'
+import { profileService } from '@/services/profile-service'
 
-// ─── Time Entry Actions ─────────────────────────────────────────────────────
+/**
+ * Server Actions — the WEB UI's mutation entrypoints.
+ * These validate input, delegate persistence to the service layer, then
+ * revalidate the affected routes. Read queries live in services/ and are
+ * called directly from server components or the REST API.
+ */
 
-const CreateEntrySchema = z.object({
+// ─── Time Entries ────────────────────────────────────────────────────────────
+
+const EntrySchema = z.object({
   taskName: z.string().min(1).max(200),
   categoryId: z.string(),
   startTime: z.coerce.date(),
@@ -17,100 +26,25 @@ const CreateEntrySchema = z.object({
 
 export async function createTimeEntry(input: unknown) {
   const userId = await getUserId()
-  const data = CreateEntrySchema.parse(input)
-
-  const task = await prisma.task.upsert({
-    where: {
-      userId_categoryId_name: {
-        userId,
-        categoryId: data.categoryId,
-        name: data.taskName,
-      },
-    },
-    update: { lastUsed: new Date() },
-    create: {
-      userId,
-      categoryId: data.categoryId,
-      name: data.taskName,
-      lastUsed: new Date(),
-    },
-  })
-
-  await prisma.timeEntry.create({
-    data: {
-      userId,
-      taskId: task.id,
-      categoryId: data.categoryId,
-      startTime: data.startTime,
-      duration: data.duration,
-      notes: data.notes,
-    },
-  })
-
+  const data = EntrySchema.parse(input)
+  await entriesService.create({ userId, ...data })
   revalidatePath('/')
 }
 
-const UpdateEntrySchema = z.object({
-  id: z.string(),
-  taskName: z.string().min(1).max(200),
-  categoryId: z.string(),
-  startTime: z.coerce.date(),
-  duration: z.number().int().positive().max(86400),
-  notes: z.string().optional(),
-})
-
 export async function updateTimeEntry(input: unknown) {
   const userId = await getUserId()
-  const data = UpdateEntrySchema.parse(input)
-
-  const existing = await prisma.timeEntry.findFirst({
-    where: { id: data.id, userId },
-  })
-  if (!existing) throw new Error('Not found')
-
-  const task = await prisma.task.upsert({
-    where: {
-      userId_categoryId_name: {
-        userId,
-        categoryId: data.categoryId,
-        name: data.taskName,
-      },
-    },
-    update: { lastUsed: new Date() },
-    create: {
-      userId,
-      categoryId: data.categoryId,
-      name: data.taskName,
-      lastUsed: new Date(),
-    },
-  })
-
-  await prisma.timeEntry.update({
-    where: { id: data.id },
-    data: {
-      taskId: task.id,
-      categoryId: data.categoryId,
-      startTime: data.startTime,
-      duration: data.duration,
-      notes: data.notes ?? null,
-    },
-  })
-
+  const { id, ...rest } = EntrySchema.extend({ id: z.string() }).parse(input)
+  await entriesService.update(id, { userId, ...rest })
   revalidatePath('/')
 }
 
 export async function deleteTimeEntry(id: string) {
   const userId = await getUserId()
-
-  await prisma.timeEntry.updateMany({
-    where: { id, userId },
-    data: { deletedAt: new Date() },
-  })
-
+  await entriesService.softDelete(userId, id)
   revalidatePath('/')
 }
 
-// ─── Category Actions ───────────────────────────────────────────────────────
+// ─── Categories ──────────────────────────────────────────────────────────────
 
 const CategorySchema = z.object({
   name: z.string().min(1).max(50),
@@ -119,74 +53,35 @@ const CategorySchema = z.object({
 
 export async function createCategory(input: unknown) {
   const userId = await getUserId()
-  const data = CategorySchema.parse(input)
-
-  const lastCat = await prisma.category.findFirst({
-    where: { userId },
-    orderBy: { order: 'desc' },
-  })
-
-  await prisma.category.create({
-    data: {
-      userId,
-      name: data.name,
-      color: data.color,
-      order: (lastCat?.order ?? -1) + 1,
-    },
-  })
-
+  const { name, color } = CategorySchema.parse(input)
+  await categoriesService.create(userId, name, color)
   revalidatePath('/')
   revalidatePath('/settings')
 }
 
-const UpdateCategorySchema = z.object({
-  id: z.string(),
-  name: z.string().min(1).max(50),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-})
-
 export async function updateCategory(input: unknown) {
   const userId = await getUserId()
-  const data = UpdateCategorySchema.parse(input)
-
-  await prisma.category.updateMany({
-    where: { id: data.id, userId },
-    data: { name: data.name, color: data.color },
-  })
-
+  const { id, name, color } = CategorySchema.extend({ id: z.string() }).parse(input)
+  await categoriesService.update(userId, id, { name, color })
   revalidatePath('/')
   revalidatePath('/settings')
 }
 
 export async function archiveCategory(id: string) {
   const userId = await getUserId()
-
-  await prisma.category.updateMany({
-    where: { id, userId },
-    data: { isArchived: true },
-  })
-
+  await categoriesService.archive(userId, id)
   revalidatePath('/')
   revalidatePath('/settings')
 }
 
 export async function updateCategoryOrder(orderedIds: string[]) {
   const userId = await getUserId()
-
-  await prisma.$transaction(
-    orderedIds.map((id, index) =>
-      prisma.category.updateMany({
-        where: { id, userId },
-        data: { order: index },
-      })
-    )
-  )
-
+  await categoriesService.reorder(userId, orderedIds)
   revalidatePath('/')
   revalidatePath('/settings')
 }
 
-// ─── Profile Actions ─────────────────────────────────────────────────────────
+// ─── Profile ─────────────────────────────────────────────────────────────────
 
 const ProfileSchema = z.object({
   name: z.string().min(1).max(100),
@@ -196,27 +91,14 @@ const ProfileSchema = z.object({
 export async function updateProfile(input: unknown) {
   const userId = await getUserId()
   const data = ProfileSchema.parse(input)
-
-  await prisma.user.update({
-    where: { id: userId },
-    data: { name: data.name, timezone: data.timezone },
-  })
-
+  await profileService.update(userId, data)
   revalidatePath('/settings')
 }
 
-// ─── Task Autocomplete ───────────────────────────────────────────────────────
+// ─── Reads used by client components (autocomplete) ────────────────────────────
 
 export async function getRecentTasks(categoryId?: string) {
   const userId = await getUserId()
-
-  return prisma.task.findMany({
-    where: {
-      userId,
-      ...(categoryId ? { categoryId } : {}),
-    },
-    orderBy: { lastUsed: 'desc' },
-    take: 20,
-    select: { id: true, name: true, categoryId: true },
-  })
+  const { tasksService } = await import('@/services/tasks-service')
+  return tasksService.listRecent(userId, { categoryId })
 }

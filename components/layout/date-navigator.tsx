@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import { format, addDays, subDays, parseISO } from 'date-fns'
-import { Button } from './ui/button'
+import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
 
 export function DateNavigator({ currentDate }: { currentDate: string }) {

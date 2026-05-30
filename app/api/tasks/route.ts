@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server'
-import { prisma } from '@/lib/db'
 import { getUserId } from '@/lib/get-user'
 import { ok, handle } from '@/lib/api'
+import { tasksService } from '@/services/tasks-service'
 
 export const dynamic = 'force-dynamic'
 
@@ -10,20 +10,10 @@ export async function GET(req: NextRequest) {
   return handle(async () => {
     const userId = await getUserId()
     const { searchParams } = req.nextUrl
-    const categoryId = searchParams.get('categoryId') ?? undefined
-    const q = searchParams.get('q') ?? undefined
-
-    const tasks = await prisma.task.findMany({
-      where: {
-        userId,
-        ...(categoryId ? { categoryId } : {}),
-        ...(q ? { name: { contains: q, mode: 'insensitive' } } : {}),
-      },
-      orderBy: { lastUsed: 'desc' },
-      take: 20,
-      select: { id: true, name: true, categoryId: true, lastUsed: true },
+    const tasks = await tasksService.listRecent(userId, {
+      categoryId: searchParams.get('categoryId') ?? undefined,
+      query: searchParams.get('q') ?? undefined,
     })
-
     return ok(tasks)
   })
 }
